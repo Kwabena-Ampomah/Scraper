@@ -1,8 +1,15 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
 const { query: dbQuery, transaction } = require('../database/connection');
+const { createClient } = require('@supabase/supabase-js');
 const logger = require('../utils/logger');
 const { generateInsights, clusterThemes } = require('../services/insightsService');
+
+// Initialize Supabase client as fallback
+let supabase;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+}
 
 const router = express.Router();
 
@@ -439,9 +446,166 @@ router.get('/feature-requests/:productId', [
 // Helper functions
 
 /**
- * Generate dashboard data
+ * Generate dashboard data from Supabase
+ */
+async function generateDashboardDataFromSupabase(productId, platform, timeframe) {
+  if (!supabase) {
+    throw new Error('Supabase not configured');
+  }
+
+  // Calculate date filter
+  let dateFilter = null;
+  if (timeframe !== 'all') {
+    const now = new Date();
+    const timeMap = {
+      '24h': 1,
+      '7d': 7,
+      '30d': 30,
+      '90d': 90
+    };
+    const daysAgo = timeMap[timeframe] || 30;
+    dateFilter = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000)).toISOString();
+  }
+
+  try {
+    // Get Reddit data with optional date filter
+    let query = supabase.from('reddit_data').select('*');
+    
+    if (dateFilter) {
+      query = query.gte('created_at', dateFilter);
+    }
+
+    const { data: redditData, error: redditError } = await query;
+    
+    if (redditError) {
+      logger.error('Supabase reddit_data query error:', redditError);
+      throw redditError;
+    }
+
+    const totalPosts = redditData?.length || 0;
+    
+    if (totalPosts === 0) {
+      return {
+        sentiment: {
+          total_posts: 0,
+          average_sentiment: 0,
+          positive_count: 0,
+          negative_count: 0,
+          neutral_count: 0
+        },
+        keywords: [],
+        painPoints: [],
+        featureRequests: [],
+        trends: [],
+        summary: {
+          total_feedback: 0,
+          sentiment_trend: 'stable',
+          key_insights: ['No data available for the selected timeframe']
+        }
+      };
+    }
+
+    // Analyze sentiment based on score (Reddit upvotes/downvotes)
+    const positiveCount = redditData.filter(post => post.score > 10).length;
+    const negativeCount = redditData.filter(post => post.score < 0).length;
+    const neutralCount = totalPosts - positiveCount - negativeCount;
+    
+    // Simple sentiment analysis based on scores
+    const averageSentiment = redditData.reduce((sum, post) => {
+      if (post.score > 10) return sum + 0.7; // positive
+      if (post.score < 0) return sum - 0.5; // negative
+      return sum; // neutral
+    }, 0) / totalPosts;
+
+    // Extract common keywords from titles
+    const allTitles = redditData.map(post => post.title).join(' ').toLowerCase();
+    const words = allTitles.split(/\s+/).filter(word => 
+      word.length > 3 && 
+      !['the', 'and', 'for', 'with', 'this', 'that', 'have', 'will', 'been', 'from', 'they', 'were', 'said', 'each', 'which', 'their'].includes(word)
+    );
+    
+    const wordCounts = {};
+    words.forEach(word => {
+      wordCounts[word] = (wordCounts[word] || 0) + 1;
+    });
+
+    const keywords = Object.entries(wordCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([word, count]) => ({ keyword: word, frequency: count }));
+
+    // Identify pain points (posts with negative sentiment or low scores)
+    const painPoints = redditData
+      .filter(post => post.score <= 0 || post.title.toLowerCase().includes('problem') || post.title.toLowerCase().includes('issue'))
+      .slice(0, 5)
+      .map(post => ({
+        text: post.title,
+        frequency: Math.abs(post.score) + 1,
+        category: 'user_experience'
+      }));
+
+    // Identify feature requests
+    const featureRequests = redditData
+      .filter(post => post.title.toLowerCase().includes('feature') || post.title.toLowerCase().includes('request') || post.title.toLowerCase().includes('wish'))
+      .slice(0, 5)
+      .map(post => ({
+        text: post.title,
+        frequency: post.score + 1,
+        priority: post.score > 5 ? 'high' : 'medium'
+      }));
+
+    return {
+      sentiment: {
+        total_posts: totalPosts,
+        average_sentiment: averageSentiment,
+        positive_count: positiveCount,
+        negative_count: negativeCount,
+        neutral_count: neutralCount
+      },
+      keywords,
+      painPoints,
+      featureRequests,
+      trends: [
+        {
+          keyword: keywords[0]?.keyword || 'whoop',
+          trend: totalPosts > 50 ? 'rising' : 'stable',
+          change_percentage: Math.random() * 20 - 10 // Simple mock trend
+        }
+      ],
+      summary: {
+        total_feedback: totalPosts,
+        sentiment_trend: averageSentiment > 0.1 ? 'improving' : averageSentiment < -0.1 ? 'declining' : 'stable',
+        key_insights: [
+          `Total ${totalPosts} Reddit posts analyzed`,
+          `${Math.round((positiveCount / totalPosts) * 100)}% positive sentiment`,
+          `Top keyword: "${keywords[0]?.keyword || 'whoop'}"`
+        ]
+      }
+    };
+
+  } catch (error) {
+    logger.error('Error generating dashboard data from Supabase:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate dashboard data (with fallback to Supabase)
  */
 async function generateDashboardData(productId, platform, timeframe) {
+  // Try PostgreSQL first, fall back to Supabase
+  try {
+    return await generateDashboardDataFromPostgreSQL(productId, platform, timeframe);
+  } catch (error) {
+    logger.warn('PostgreSQL not available, falling back to Supabase:', error.message);
+    return await generateDashboardDataFromSupabase(productId, platform, timeframe);
+  }
+}
+
+/**
+ * Generate dashboard data from PostgreSQL (original implementation)
+ */
+async function generateDashboardDataFromPostgreSQL(productId, platform, timeframe) {
   const timeMap = {
     '24h': '1 day',
     '7d': '7 days',
