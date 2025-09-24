@@ -1,5 +1,4 @@
 // Vercel API function for insights dashboard
-const { Pool } = require('pg');
 
 export default async function handler(req, res) {
   // Set CORS headers
