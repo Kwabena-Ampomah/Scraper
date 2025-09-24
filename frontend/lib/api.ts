@@ -2,6 +2,12 @@ import axios from 'axios'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
 
+console.log('🔧 API Configuration:', {
+  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  API_BASE_URL: API_BASE_URL,
+  finalBaseURL: `${API_BASE_URL}/api`
+})
+
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   timeout: 5000,
