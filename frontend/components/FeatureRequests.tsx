@@ -3,10 +3,8 @@
 import { 
   Lightbulb, 
   TrendingUp, 
-  MessageSquare, 
-  Users,
-  BarChart3,
-  Star
+  Star,
+  AlertTriangle
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -19,11 +17,8 @@ import {
 } from 'recharts'
 
 interface FeatureRequest {
-  keyword: string
+  text: string
   frequency: number
-  averageSentiment: number
-  postCount: number
-  sampleTitles: string[]
   priority: 'low' | 'medium' | 'high'
 }
 
@@ -48,90 +43,60 @@ export function FeatureRequests({ featureRequests }: FeatureRequestsProps) {
     )
   }
 
+  // Prepare data for chart
+  const chartData = featureRequests.map(request => ({
+    name: request.text.substring(0, 30) + (request.text.length > 30 ? '...' : ''),
+    frequency: request.frequency,
+    priority: request.priority
+  }))
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-green-100 text-green-800 border-green-200'
-      case 'medium': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+      case 'high': return 'text-red-600 bg-red-100'
+      case 'medium': return 'text-yellow-600 bg-yellow-100'
+      case 'low': return 'text-green-600 bg-green-100'
+      default: return 'text-gray-600 bg-gray-100'
     }
   }
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
-      case 'high': return <Star className="h-4 w-4 text-green-600" />
-      case 'medium': return <TrendingUp className="h-4 w-4 text-blue-600" />
-      case 'low': return <TrendingUp className="h-4 w-4 text-gray-600" />
-      default: return <TrendingUp className="h-4 w-4 text-gray-600" />
+      case 'high': return <AlertTriangle className="w-4 h-4" />
+      case 'medium': return <Star className="w-4 h-4" />
+      case 'low': return <TrendingUp className="w-4 h-4" />
+      default: return <Lightbulb className="w-4 h-4" />
     }
   }
-
-  const chartData = featureRequests.slice(0, 10).map(request => ({
-    keyword: request.keyword,
-    frequency: request.frequency || 0,
-    priority: request.priority,
-    sentiment: request.averageSentiment || 0
-  }))
-
-  const priorityCounts = featureRequests.reduce((acc, request) => {
-    acc[request.priority] = (acc[request.priority] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
-  const priorityData = Object.entries(priorityCounts).map(([priority, count]) => ({
-    priority: priority.charAt(0).toUpperCase() + priority.slice(1),
-    count,
-    color: priority === 'high' ? '#22c55e' : 
-           priority === 'medium' ? '#3b82f6' : '#6b7280'
-  }))
 
   return (
     <div className="card">
       <div className="card-header">
-        <h2 className="text-lg font-semibold text-gray-900">Feature Requests</h2>
-        <p className="text-sm text-gray-600">User-requested features and improvements</p>
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <Lightbulb className="w-5 h-5" />
+          Feature Requests
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Priority Overview */}
-        <div className="lg:col-span-1">
-          <h3 className="text-sm font-medium text-gray-900 mb-4">Priority Distribution</h3>
-          <div className="space-y-3">
-            {priorityData.map((item) => (
-              <div key={item.priority} className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-sm text-gray-600">{item.priority}</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Frequency Chart */}
-        <div className="lg:col-span-2">
-          <h3 className="text-sm font-medium text-gray-900 mb-4">Top Feature Requests by Frequency</h3>
-          <ResponsiveContainer width="100%" height={200}>
+      {/* Chart */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Request Frequency</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
-                dataKey="keyword" 
+                dataKey="name" 
                 angle={-45}
                 textAnchor="end"
-                height={80}
+                height={100}
+                fontSize={12}
               />
               <YAxis />
               <Tooltip 
-                formatter={(value, name) => [
-                  value, 
-                  name === 'frequency' ? 'Mentions' : 'Sentiment'
-                ]}
+                formatter={(value, name) => [value, 'Frequency']}
+                labelFormatter={(label) => `Request: ${label}`}
               />
-              <Bar dataKey="frequency" fill="#3b82f6" />
+              <Bar dataKey="frequency" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -139,54 +104,30 @@ export function FeatureRequests({ featureRequests }: FeatureRequestsProps) {
 
       {/* Feature Requests List */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-900">Detailed Feature Requests</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {featureRequests.map((request, index) => (
+        <h3 className="text-sm font-medium text-gray-700">Top Feature Requests</h3>
+        <div className="space-y-3">
+          {featureRequests.slice(0, 5).map((request, index) => (
             <div 
-              key={request.keyword}
-              className={`border rounded-lg p-4 ${getPriorityColor(request.priority)}`}
+              key={index}
+              className="p-4 bg-gray-50 rounded-lg border border-gray-200"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  {getPriorityIcon(request.priority)}
-                  <h4 className="font-medium">{request.keyword}</h4>
-                </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-white/50">
-                  {request.priority}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>{request.postCount} posts</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <BarChart3 className="h-4 w-4" />
-                  <span>{request.frequency} mentions</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>{(request.averageSentiment || 0).toFixed(2)} sentiment</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4" />
-                  <span>{request.postCount} users</span>
-                </div>
-              </div>
-
-              {request.sampleTitles.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-white/20">
-                  <p className="text-xs font-medium mb-2">Sample Requests:</p>
-                  <div className="space-y-1">
-                    {request.sampleTitles.slice(0, 2).map((title, idx) => (
-                      <p key={idx} className="text-xs line-clamp-2">
-                        "{title}"
-                      </p>
-                    ))}
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    {getPriorityIcon(request.priority)}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(request.priority)}`}>
+                      {request.priority.charAt(0).toUpperCase() + request.priority.slice(1)} Priority
+                    </span>
+                  </div>
+                  <p className="font-medium text-gray-900 mb-1">{request.text}</p>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="w-4 h-4" />
+                      {request.frequency} mentions
+                    </span>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>
