@@ -14,19 +14,30 @@ const dbConfig = {
   connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
 };
 
-const pool = new Pool(dbConfig);
+let pool;
 
-// Test database connection
-pool.on('connect', () => {
-  logger.info('📊 Connected to PostgreSQL database');
-});
+// Only create pool if we have database configuration
+if (process.env.DB_HOST && process.env.DB_PASSWORD) {
+  pool = new Pool(dbConfig);
 
-pool.on('error', (err) => {
-  logger.error('❌ Database connection error:', err);
-});
+  // Test database connection
+  pool.on('connect', () => {
+    logger.info('📊 Connected to PostgreSQL database');
+  });
+
+  pool.on('error', (err) => {
+    logger.error('❌ Database connection error:', err);
+  });
+} else {
+  logger.warn('⚠️ Database not configured - running without PostgreSQL connection');
+}
 
 // Database query helper
 const query = async (text, params) => {
+  if (!pool) {
+    throw new Error('Database not configured');
+  }
+  
   const start = Date.now();
   try {
     const res = await pool.query(text, params);
@@ -41,6 +52,10 @@ const query = async (text, params) => {
 
 // Transaction helper
 const transaction = async (callback) => {
+  if (!pool) {
+    throw new Error('Database not configured');
+  }
+  
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -57,8 +72,10 @@ const transaction = async (callback) => {
 
 // Close all connections
 const close = async () => {
-  await pool.end();
-  logger.info('🔒 Database connections closed');
+  if (pool) {
+    await pool.end();
+    logger.info('🔒 Database connections closed');
+  }
 };
 
 module.exports = {
