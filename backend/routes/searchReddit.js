@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const PipelineOrchestrator = require('../services/pipeline/pipelineOrchestrator');
+const PipelineOrchestrator = require('../backend/services/pipeline/pipelineOrchestrator');
 const { searchConfigurations } = require('../config/searchConfigurations');
 const logger = require('../utils/logger');
 
