@@ -67,7 +67,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<Filters>({
-    productId: '0f0c4df2-a3e9-48e0-aa71-2f3462cb97d7', // WHOOP 5.0 product ID
+    productId: '412ac63f-91be-4f26-bf66-2de7b9158126', // WHOOP 5.0 product ID - UPDATED
     platform: 'all',
     timeframe: '30d',
     sentiment: 'all'
