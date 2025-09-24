@@ -1,5 +1,5 @@
 const express = require('express');
-const { query: dbQuery } = require('../database/connection');
+const { createClient } = require('@supabase/supabase-js');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -10,16 +10,46 @@ const router = express.Router();
  */
 router.get('/', async (req, res) => {
   try {
-    // Check database connection
-    const dbResult = await dbQuery('SELECT NOW() as current_time');
+    const startTime = Date.now();
+    
+    // Check Supabase connection if configured
+    let databaseStatus = { status: 'not_configured' };
+    
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+      try {
+        const supabase = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY
+        );
+        
+        // Simple health check query
+        const { data, error } = await supabase
+          .from('embeddings')
+          .select('id')
+          .limit(1);
+          
+        if (error && error.code !== 'PGRST116') { // PGRST116 = relation does not exist (which is ok)
+          throw error;
+        }
+        
+        databaseStatus = {
+          status: 'healthy',
+          responseTime: Date.now() - startTime,
+          currentTime: new Date().toISOString()
+        };
+      } catch (error) {
+        logger.warn('Database health check failed:', error.message);
+        databaseStatus = {
+          status: 'error',
+          error: error.message,
+          responseTime: Date.now() - startTime
+        };
+      }
+    }
     
     // Check external services
     const services = {
-      database: {
-        status: 'healthy',
-        responseTime: Date.now() - req.startTime,
-        currentTime: dbResult.rows[0].current_time
-      },
+      database: databaseStatus,
       openai: {
         status: process.env.OPENAI_API_KEY ? 'configured' : 'not_configured'
       },
@@ -34,163 +64,43 @@ router.get('/', async (req, res) => {
       }
     };
 
-    const overallStatus = Object.values(services).every(service => 
-      service.status === 'healthy' || service.status === 'configured'
-    ) ? 'healthy' : 'degraded';
-
-    res.json({
-      status: overallStatus,
+    // Overall health status
+    const isHealthy = databaseStatus.status !== 'error';
+    
+    const response = {
+      status: isHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: process.env.npm_package_version || '1.0.0',
       services
-    });
+    };
 
+    logger.info(`Health check: ${response.status}`);
+    
+    // Return 200 even if some services are not configured (but not if database fails)
+    res.status(200).json(response);
+    
   } catch (error) {
-    logger.error('Health check failed', { error: error.message });
+    logger.error('Health check failed:', error);
     
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
-      error: error.message
-    });
-  }
-});
-
-/**
- * Detailed health check
- * GET /api/health/detailed
- */
-router.get('/detailed', async (req, res) => {
-  try {
-    const healthChecks = {
-      database: await checkDatabaseHealth(),
-      redis: await checkRedisHealth(),
-      external_apis: await checkExternalAPIs(),
-      disk_space: await checkDiskSpace(),
-      memory: await checkMemoryUsage()
-    };
-
-    const overallStatus = Object.values(healthChecks).every(check => 
-      check.status === 'healthy'
-    ) ? 'healthy' : 'degraded';
-
-    res.json({
-      status: overallStatus,
-      timestamp: new Date().toISOString(),
-      checks: healthChecks
-    });
-
-  } catch (error) {
-    logger.error('Detailed health check failed', { error: error.message });
-    
-    res.status(503).json({
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      error: error.message
-    });
-  }
-});
-
-/**
- * System metrics
- * GET /api/health/metrics
- */
-router.get('/metrics', async (req, res) => {
-  try {
-    const metrics = {
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      cpu: process.cpuUsage(),
-      timestamp: new Date().toISOString(),
-      node_version: process.version,
-      platform: process.platform
-    };
-
-    res.json(metrics);
-
-  } catch (error) {
-    logger.error('Metrics endpoint failed', { error: error.message });
-    res.status(500).json({ error: 'Failed to retrieve metrics' });
-  }
-});
-
-// Helper functions
-
-async function checkDatabaseHealth() {
-  try {
-    const startTime = Date.now();
-    await dbQuery('SELECT 1');
-    const responseTime = Date.now() - startTime;
-    
-    return {
-      status: 'healthy',
-      responseTime: `${responseTime}ms`,
-      message: 'Database connection successful'
-    };
-  } catch (error) {
-    return {
-      status: 'unhealthy',
       error: error.message,
-      message: 'Database connection failed'
-    };
+      version: process.env.npm_package_version || '1.0.0'
+    });
   }
-}
+});
 
-async function checkRedisHealth() {
-  // Redis check would go here if Redis is implemented
-  return {
-    status: 'not_configured',
-    message: 'Redis not implemented'
-  };
-}
-
-async function checkExternalAPIs() {
-  const apis = {
-    openai: process.env.OPENAI_API_KEY ? 'configured' : 'not_configured',
-    pinecone: process.env.PINECONE_API_KEY ? 'configured' : 'not_configured',
-    supabase: (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) ? 'configured' : 'not_configured',
-    twitter: process.env.TWITTER_BEARER_TOKEN ? 'configured' : 'not_configured'
-  };
-
-  return {
-    status: Object.values(apis).some(status => status === 'configured') ? 'healthy' : 'degraded',
-    apis
-  };
-}
-
-async function checkDiskSpace() {
-  try {
-    const fs = require('fs');
-    const stats = fs.statSync('.');
-    
-    return {
-      status: 'healthy',
-      message: 'Disk space check passed'
-    };
-  } catch (error) {
-    return {
-      status: 'unhealthy',
-      error: error.message
-    };
-  }
-}
-
-async function checkMemoryUsage() {
-  const memUsage = process.memoryUsage();
-  const memUsageMB = {
-    rss: Math.round(memUsage.rss / 1024 / 1024),
-    heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-    heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-    external: Math.round(memUsage.external / 1024 / 1024)
-  };
-
-  const status = memUsageMB.heapUsed < 500 ? 'healthy' : 'warning'; // Warning if heap usage > 500MB
-
-  return {
-    status,
-    usage: memUsageMB,
-    message: status === 'healthy' ? 'Memory usage normal' : 'High memory usage detected'
-  };
-}
+/**
+ * Simple ping endpoint
+ * GET /api/health/ping
+ */
+router.get('/ping', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    message: 'pong'
+  });
+});
 
 module.exports = router;

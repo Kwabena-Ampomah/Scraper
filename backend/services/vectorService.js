@@ -3,10 +3,15 @@ const { Pinecone } = require('@pinecone-database/pinecone');
 const { createClient } = require('@supabase/supabase-js');
 const logger = require('../utils/logger');
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Initialize OpenAI conditionally
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+} else {
+  logger.warn('OpenAI API key not provided - some features will be disabled');
+}
 
 // Initialize Pinecone
 let pinecone = null;

@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
 const axios = require('axios');
-const puppeteer = require('puppeteer');
+// Puppeteer removed for Railway deployment compatibility
 const { query: dbQuery, transaction } = require('../database/connection');
 const logger = require('../utils/logger');
 const { analyzeSentiment } = require('../services/sentimentService');

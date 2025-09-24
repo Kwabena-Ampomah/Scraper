@@ -36,7 +36,9 @@ class EmbeddingsService {
    */
   async initialize() {
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+      logger.warn('OPENAI_API_KEY not provided - embeddings service will be disabled');
+      this.openai = null;
+      return;
     }
 
     this.openai = new OpenAI({

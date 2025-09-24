@@ -100,7 +100,9 @@ class ETLPipeline {
    */
   async initializeOpenAI() {
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+      logger.warn('OPENAI_API_KEY not provided - AI features will be disabled');
+      this.openai = null;
+      return;
     }
 
     this.openai = new OpenAI({
@@ -108,9 +110,13 @@ class ETLPipeline {
     });
 
     // Test connection
-    await this.openai.models.list();
-    
-    logger.info('🤖 OpenAI client initialized');
+    try {
+      await this.openai.models.list();
+      logger.info('🤖 OpenAI client initialized');
+    } catch (error) {
+      logger.warn('🤖 OpenAI connection failed, continuing without AI features');
+      this.openai = null;
+    }
   }
 
   /**
