@@ -83,8 +83,8 @@ export default function Dashboard() {
       // Fetch dashboard data
       const dashboardResponse = await api.get(`/insights/dashboard/${filters.productId}`, {
         params: {
-          platform: filters.platform === 'all' ? undefined : filters.platform,
-          timeframe: filters.timeframe
+          platform: filters.platform || "all",
+          timeframe: filters.timeframe || "30d"
         }
       })
       console.log('✅ Dashboard response:', dashboardResponse.data)
@@ -93,8 +93,8 @@ export default function Dashboard() {
       // Fetch clusters
       const clustersResponse = await api.get(`/insights/clusters/${filters.productId}`, {
         params: {
-          platform: filters.platform === 'all' ? undefined : filters.platform,
-          timeframe: filters.timeframe
+          platform: filters.platform || "all",
+          timeframe: filters.timeframe || "30d"
         }
       })
       console.log('✅ Clusters response:', clustersResponse.data)
@@ -103,8 +103,8 @@ export default function Dashboard() {
       // Fetch pain points
       const painPointsResponse = await api.get(`/insights/pain-points/${filters.productId}`, {
         params: {
-          platform: filters.platform === 'all' ? undefined : filters.platform,
-          timeframe: filters.timeframe
+          platform: filters.platform || "all",
+          timeframe: filters.timeframe || "30d"
         }
       })
       console.log('✅ Pain points response:', painPointsResponse.data)
@@ -113,8 +113,8 @@ export default function Dashboard() {
       // Fetch feature requests
       const featureRequestsResponse = await api.get(`/insights/feature-requests/${filters.productId}`, {
         params: {
-          platform: filters.platform === 'all' ? undefined : filters.platform,
-          timeframe: filters.timeframe
+          platform: filters.platform || "all",
+          timeframe: filters.timeframe || "30d"
         }
       })
       console.log('✅ Feature requests response:', featureRequestsResponse.data)
