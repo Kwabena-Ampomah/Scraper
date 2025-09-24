@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { productId } = req.query;
+    const productId = req.query.productId || req.url.split('/').pop().split('?')[0];
     
     if (!productId) {
       return res.status(400).json({

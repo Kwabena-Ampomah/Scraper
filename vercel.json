@@ -1,27 +1,25 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/next"
+  "functions": {
+    "backend/api/health.js": {
+      "runtime": "nodejs18.x"
     },
-    {
-      "src": "backend/api/**/*.js",
-      "use": "@vercel/node"
+    "backend/api/insights/dashboard.js": {
+      "runtime": "nodejs18.x"
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/api/health",
-      "dest": "/backend/api/health.js"
+      "source": "/api/health",
+      "destination": "/backend/api/health.js"
     },
     {
-      "src": "/api/insights/dashboard",
-      "dest": "/backend/api/insights/dashboard.js"
+      "source": "/api/insights/dashboard/:productId",
+      "destination": "/backend/api/insights/dashboard.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "source": "/(.*)",
+      "destination": "/frontend/$1"
     }
   ]
 }
