@@ -1,0 +1,197 @@
+const puppeteer = require('puppeteer');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const fs = require('fs-extra');
+
+class WebScraper {
+  constructor() {
+    this.browser = null;
+    this.page = null;
+    this.usePuppeteer = true;
+  }
+
+  async init() {
+    try {
+      console.log('🚀 Starting browser...');
+      this.browser = await puppeteer.launch({
+        headless: true, // Changed to true for better reliability
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu'
+        ]
+      });
+      this.page = await this.browser.newPage();
+      await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+      console.log('✅ Browser initialized');
+    } catch (error) {
+      console.log('⚠️  Puppeteer failed, falling back to axios + cheerio');
+      console.log('Error:', error.message);
+      this.usePuppeteer = false;
+    }
+  }
+
+  async scrapeUrl(url, options = {}) {
+    if (!this.page && this.usePuppeteer) {
+      await this.init();
+    }
+
+    if (this.usePuppeteer && this.page) {
+      return await this.scrapeWithPuppeteer(url);
+    } else {
+      return await this.scrapeWithAxios(url);
+    }
+  }
+
+  async scrapeWithPuppeteer(url) {
+    try {
+      console.log(`📡 Scraping with Puppeteer: ${url}`);
+      await this.page.goto(url, { 
+        waitUntil: 'networkidle2',
+        timeout: 30000 
+      });
+
+      // Basic scraping - extract title and links
+      const data = await this.page.evaluate(() => {
+        return {
+          title: document.title,
+          url: window.location.href,
+          links: Array.from(document.querySelectorAll('a')).map(link => ({
+            text: link.textContent.trim(),
+            href: link.href
+          })).filter(link => link.text && link.href),
+          images: Array.from(document.querySelectorAll('img')).map(img => ({
+            src: img.src,
+            alt: img.alt
+          }))
+        };
+      });
+
+      console.log(`✅ Puppeteer scraped ${data.links.length} links and ${data.images.length} images`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Puppeteer error scraping ${url}:`, error.message);
+      console.log('🔄 Falling back to axios + cheerio...');
+      this.usePuppeteer = false;
+      return await this.scrapeWithAxios(url);
+    }
+  }
+
+  async scrapeWithAxios(url) {
+    try {
+      console.log(`📡 Scraping with axios + cheerio: ${url}`);
+      
+      const response = await axios.get(url, {
+        timeout: 30000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+
+      const $ = cheerio.load(response.data);
+      
+      const data = {
+        title: $('title').text().trim(),
+        url: url,
+        links: [],
+        images: []
+      };
+
+      // Extract links
+      $('a').each((i, element) => {
+        const $el = $(element);
+        const text = $el.text().trim();
+        const href = $el.attr('href');
+        if (text && href) {
+          data.links.push({
+            text: text,
+            href: href.startsWith('http') ? href : new URL(href, url).href
+          });
+        }
+      });
+
+      // Extract images
+      $('img').each((i, element) => {
+        const $el = $(element);
+        const src = $el.attr('src');
+        const alt = $el.attr('alt') || '';
+        if (src) {
+          data.images.push({
+            src: src.startsWith('http') ? src : new URL(src, url).href,
+            alt: alt
+          });
+        }
+      });
+
+      console.log(`✅ Axios scraped ${data.links.length} links and ${data.images.length} images`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Error scraping ${url} with axios:`, error.message);
+      throw error;
+    }
+  }
+
+  async saveData(data, filename = 'scraped-data.json') {
+    try {
+      await fs.writeJson(filename, data, { spaces: 2 });
+      console.log(`💾 Data saved to ${filename}`);
+    } catch (error) {
+      console.error('❌ Error saving data:', error.message);
+      throw error;
+    }
+  }
+
+  async close() {
+    if (this.browser) {
+      await this.browser.close();
+      console.log('🔒 Browser closed');
+    }
+  }
+}
+
+// Example usage
+async function main() {
+  const scraper = new WebScraper();
+  
+  try {
+    // Example: Scrape a website
+    const url = process.argv[2] || 'https://example.com';
+    console.log(`🎯 Target URL: ${url}`);
+    
+    const data = await scraper.scrapeUrl(url);
+    
+    // Save the scraped data
+    await scraper.saveData(data);
+    
+    // Display some results
+    console.log('\n📊 Scraping Results:');
+    console.log(`Title: ${data.title}`);
+    console.log(`Links found: ${data.links.length}`);
+    console.log(`Images found: ${data.images.length}`);
+    
+    if (data.links.length > 0) {
+      console.log('\n🔗 First few links:');
+      data.links.slice(0, 5).forEach((link, index) => {
+        console.log(`${index + 1}. ${link.text} -> ${link.href}`);
+      });
+    }
+    
+  } catch (error) {
+    console.error('💥 Scraping failed:', error.message);
+  } finally {
+    await scraper.close();
+  }
+}
+
+// Run if this file is executed directly
+if (require.main === module) {
+  main().catch(console.error);
+}
+
+module.exports = WebScraper;
