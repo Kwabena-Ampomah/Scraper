@@ -1,113 +1,403 @@
-# Web Scraper Specification
+# User Feedback Intelligence Platform - Specification
 
 ## Project Overview
 
-A robust, dual-mode web scraper built with Node.js that can handle both static and dynamic web content through intelligent fallback mechanisms.
+A comprehensive platform for scraping, analyzing, and visualizing user feedback from social media platforms (primarily Reddit) with real-time sentiment analysis and AI-powered insights.
 
 ## Technical Architecture
 
 ### Core Technologies
-- **Node.js** - Runtime environment
-- **Puppeteer** - Browser automation for dynamic content
-- **Axios** - HTTP client for static content
-- **Cheerio** - Server-side jQuery implementation
-- **fs-extra** - Enhanced file system operations
+- **Node.js & Express** - Backend API server
+- **Next.js & TypeScript** - Frontend dashboard  
+- **Supabase** - PostgreSQL database with vector search
+- **Reddit API** - Real-time social media data scraping
+- **Vercel** - Frontend deployment
+- **Railway** - Backend deployment
 
-### Dual-Mode Operation
+### System Components
 
-#### Primary Mode: Puppeteer
-- **Purpose**: Handle JavaScript-heavy websites and dynamic content
-- **Capabilities**: 
-  - Full browser rendering
-  - JavaScript execution
-  - Dynamic content loading
-  - User interaction simulation
-- **Configuration**: Headless mode with stability flags
+#### Backend API (/backend/)
+- **Express Server** - RESTful API endpoints
+- **Reddit Scraper** - Real-time social media data collection
+- **Sentiment Analysis** - AI-powered feedback classification
+- **Vector Embeddings** - Semantic search capabilities
+- **Database Integration** - Supabase PostgreSQL connection
 
-#### Fallback Mode: Axios + Cheerio
-- **Purpose**: Lightweight scraping for static content
-- **Capabilities**:
-  - Fast HTTP requests
-  - HTML parsing
-  - CSS selector queries
-  - No browser overhead
-- **Trigger**: Automatic fallback when Puppeteer fails
+#### Frontend Dashboard (/frontend/)
+- **Next.js App** - React-based user interface
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first styling
+- **Real-time Analytics** - Live feedback visualization
 
-## API Specification
+---
 
-### WebScraper Class
+## 🔄 SYSTEM PIPELINE & FILE DEPENDENCIES
 
-#### Constructor
-```javascript
-constructor()
+### Data Flow Architecture
+
+```mermaid
+graph TD
+    A[Reddit API] --> B[Reddit Scraper Script]
+    B --> C[Supabase Database]
+    C --> D[Backend API Routes]
+    D --> E[Frontend Dashboard]
+    E --> F[User Interface Components]
+    
+    G[User Filters] --> D
+    H[Environment Config] --> B
+    H --> D
+    H --> E
 ```
-- Initializes scraper with default settings
-- Sets `usePuppeteer` flag to true
 
-#### Methods
+### Core File Pipeline and Impact Analysis
 
-##### `async init()`
-- **Purpose**: Initialize browser instance
-- **Behavior**: 
-  - Attempts Puppeteer launch with stability flags
-  - Sets User-Agent header
-  - Falls back to axios mode on failure
-- **Error Handling**: Graceful degradation to fallback mode
+#### 1. Data Collection Layer
 
-##### `async scrapeUrl(url, options = {})`
-- **Parameters**:
-  - `url` (string): Target website URL
-  - `options` (object): Optional configuration
-- **Returns**: Promise resolving to scraped data object
-- **Behavior**: Routes to appropriate scraping method based on availability
+**File: `/backend/scripts/simpleRedditScraper.js`**
+- **Pipeline Position**: Data Entry Point
+- **Responsibilities**: Reddit API scraping, data cleaning, database insertion
+- **Dependencies**: 
+  - Environment variables (SUPABASE_URL, SUPABASE_ANON_KEY)
+  - Supabase client configuration
+  - Target subreddit list and search terms
+- **Downstream Impact**: 
+  - Changes affect data quality in entire system
+  - New search terms expand analytics coverage
+  - Schema changes require database migration
+  - Performance changes impact data freshness
 
-##### `async scrapeWithPuppeteer(url)`
-- **Purpose**: Scrape using browser automation
-- **Features**:
-  - 30-second timeout
-  - Network idle waiting
-  - Full DOM access
-  - JavaScript execution
-- **Fallback**: Switches to axios mode on error
+#### 2. Database Layer
 
-##### `async scrapeWithAxios(url)`
-- **Purpose**: Scrape static HTML content
-- **Features**:
-  - 30-second timeout
-  - Proper User-Agent header
-  - Relative URL resolution
-  - CSS selector parsing
+**File: `Supabase reddit_data table`**
+- **Pipeline Position**: Central Data Store
+- **Schema**: `id, reddit_id, title, content, author, score, subreddit, url, created_at`
+- **Dependencies**: Scraper script for data insertion
+- **Downstream Impact**:
+  - Schema changes require frontend component updates
+  - Index changes affect query performance
+  - Data volume impacts dashboard loading times
 
-##### `async saveData(data, filename = 'scraped-data.json')`
-- **Parameters**:
-  - `data` (object): Scraped data to save
-  - `filename` (string): Output file name
-- **Behavior**: Saves data as formatted JSON
+#### 3. API Processing Layer
 
-##### `async close()`
-- **Purpose**: Clean up browser resources
-- **Behavior**: Closes browser instance if active
+**File: `/backend/routes/insights.js`**
+- **Pipeline Position**: Data Transformation & Analytics
+- **Responsibilities**: 
+  - Sentiment analysis and aggregation
+  - Pain point detection algorithms
+  - Feature request identification
+  - Keyword extraction and clustering
+- **Dependencies**: 
+  - Supabase database connection
+  - Reddit_data table structure
+  - Environment configuration
+- **Downstream Impact**:
+  - Algorithm changes affect all dashboard metrics
+  - New analytics features require frontend updates
+  - Performance optimizations impact user experience
+  - Data structure changes break frontend components
 
-## Data Structure
+#### 4. Server Infrastructure
 
-### Scraped Data Format
-```javascript
-{
-  title: string,        // Page title
-  url: string,         // Current URL
-  links: [             // Array of link objects
-    {
-      text: string,    // Link text content
-      href: string     // Link URL
-    }
-  ],
-  images: [            // Array of image objects
-    {
-      src: string,     // Image source URL
-      alt: string      // Alt text
-    }
-  ]
-}
+**File: `/backend/server.js`**
+- **Pipeline Position**: API Gateway
+- **Responsibilities**:
+  - Route configuration and middleware
+  - CORS and security settings
+  - Error handling and logging
+  - Rate limiting and authentication
+- **Dependencies**: All route files, database connection, environment config
+- **Downstream Impact**:
+  - Middleware changes affect all API requests
+  - CORS changes impact frontend connectivity
+  - Route changes break frontend API calls
+  - Security changes affect system accessibility
+
+#### 5. Frontend Data Layer
+
+**File: `/frontend/lib/api.ts`**
+- **Pipeline Position**: Frontend-Backend Bridge
+- **Responsibilities**:
+  - HTTP client configuration
+  - Request/response interceptors
+  - Environment-based URL routing
+  - Error handling and timeouts
+- **Dependencies**: Environment variables, backend API structure
+- **Downstream Impact**:
+  - URL changes affect all frontend-backend communication
+  - Timeout changes impact user experience
+  - Error handling changes affect user feedback
+
+#### 6. Dashboard Orchestration
+
+**File: `/frontend/app/page.tsx`**
+- **Pipeline Position**: Main UI Controller
+- **Responsibilities**:
+  - Data fetching coordination
+  - State management for all dashboard data
+  - Component rendering and layout
+  - User interaction handling
+- **Dependencies**: API client, all dashboard components, filter logic
+- **Downstream Impact**:
+  - State changes affect all child components
+  - API calling logic changes impact data freshness
+  - Layout changes affect user experience
+  - Error handling changes affect debugging
+
+#### 7. Analytics Visualization Components
+
+**Files: `/frontend/components/*`**
+- **Pipeline Position**: Data Presentation Layer
+- **Key Components**:
+  - `SentimentOverview.tsx`: Displays sentiment metrics and trends
+  - `PainPointsAnalysis.tsx`: Visualizes user problems and issues
+  - `FeatureRequests.tsx`: Shows requested features and improvements
+  - `ThemeClusters.tsx`: Displays thematic analysis and keywords
+- **Dependencies**: Backend API data structures, chart libraries, UI frameworks
+- **Downstream Impact**:
+  - Data structure changes require backend API alignment
+  - UI changes affect user workflow and insights discovery
+  - Performance changes impact dashboard responsiveness
+
+### Change Impact Matrix
+
+| File Changed | Immediate Impact | Downstream Effects | Testing Required |
+|--------------|------------------|-------------------|------------------|
+| `simpleRedditScraper.js` | Data collection disruption | All analytics become stale | Database integrity, API responses |
+| `insights.js` | API response changes | Frontend component failures | All dashboard components |
+| `server.js` | Server functionality | Complete system unavailability | Full integration testing |
+| `api.ts` | Frontend-backend communication | All API calls fail | All frontend features |
+| `page.tsx` | Dashboard UI | User experience disruption | All user workflows |
+| Component files | Specific feature display | User confusion, workflow breaks | Individual feature testing |
+
+### Data Dependency Chain
+
+```
+Reddit API → Scraper Script → Supabase DB → Backend Routes → Frontend API Client → Dashboard Components → User Interface
+```
+
+Each link in this chain has specific failure modes:
+- **Reddit API**: Rate limiting, structure changes, authentication issues
+- **Scraper Script**: Network errors, parsing failures, database conflicts
+- **Supabase DB**: Connection issues, query performance, schema conflicts  
+- **Backend Routes**: Logic errors, performance bottlenecks, data transformation failures
+- **Frontend API Client**: Network timeouts, CORS issues, response parsing errors
+- **Dashboard Components**: Rendering errors, state management issues, user interaction bugs
+
+### Performance Critical Paths
+
+1. **Data Collection**: Scraper → Database (affects data freshness)
+2. **Analytics Processing**: Database → Backend Routes (affects dashboard load time)  
+3. **User Interface**: API Client → Components (affects user experience)
+
+Changes to any component in these critical paths require careful performance testing and monitoring.
+
+---
+
+## API Endpoints
+
+### Health Check
+```
+GET /api/health
+```
+- **Purpose**: Service health verification
+- **Response**: Server status and timestamp
+
+### Dashboard Analytics  
+```
+GET /api/insights/dashboard/:productId
+```
+- **Parameters**: 
+  - `productId` (UUID): Target product identifier
+- **Returns**: Comprehensive analytics dashboard data
+- **Features**: Real-time sentiment analysis, theme clustering, pain point detection
+
+### Reddit Data Collection
+```
+POST /api/reddit/scrape
+```
+- **Purpose**: Trigger real-time Reddit data scraping
+- **Body**: Search parameters and subreddit targets
+- **Returns**: Scraping status and inserted post count
+
+## Data Pipeline Architecture
+
+### Reddit Scraper (`/backend/scripts/simpleRedditScraper.js`)
+
+#### Core Functionality
+- **Real-time Scraping**: Live Reddit API data collection
+- **Target Subreddits**: r/whoop, r/fitness, r/Garmin
+- **Search Terms**: Product-specific queries (WHOOP 4.0, battery life, etc.)
+- **Data Storage**: Direct Supabase database insertion
+
+#### Data Processing Flow
+1. **Reddit API Query** - Fetch posts via Reddit JSON endpoints
+2. **Content Filtering** - Remove stickied/irrelevant posts  
+3. **Data Transformation** - Structure posts for database storage
+4. **Sentiment Analysis** - Generate emotion and sentiment scores
+5. **Database Insertion** - Store in Supabase `reddit_data` table
+
+#### Rate Limiting & Ethics
+- **Request Delay**: 1.5-2 second intervals between API calls
+- **User Agent**: Properly identified scraper bot
+- **Respectful Scraping**: Limited request volume and timeouts
+## Database Schema
+
+### Supabase Tables
+
+#### `reddit_data`
+```sql
+CREATE TABLE reddit_data (
+  id SERIAL PRIMARY KEY,
+  reddit_id TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT,
+  author TEXT,
+  score INTEGER DEFAULT 0,
+  subreddit TEXT,
+  url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### `embeddings` 
+```sql  
+CREATE TABLE embeddings (
+  id BIGSERIAL PRIMARY KEY,
+  content_id TEXT NOT NULL,
+  content_type TEXT DEFAULT 'post',
+  content_text TEXT NOT NULL,
+  embedding VECTOR(1536) NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+## Real Data Integration
+
+### Current Implementation Status
+
+#### ✅ Working Components
+- **Reddit API Scraping**: Successfully fetches real posts from target subreddits
+- **Database Connection**: Supabase integration established  
+- **Real Data Storage**: Posts stored with metadata (score, author, subreddit)
+- **Backend API**: Health endpoints and dashboard routes functional
+- **Frontend Deployment**: Vercel hosting with CORS configuration
+
+#### ✅ Recent Achievements  
+- **Fixed CORS Issues**: Backend port alignment (localhost:3001)
+- **Product UUID**: Established product identifier (412ac63f-91be-4f26-bf66-2de7b9158126)  
+- **Real Reddit Data**: Successfully scraped WHOOP-related posts from r/whoop
+- **Database Table**: Created `reddit_data` table for storing scraped content
+
+### Deployment Configuration
+
+#### Frontend (Vercel)
+```bash
+# Environment Variables
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3001  # Local development
+NEXT_PUBLIC_API_BASE_URL=https://your-railway-app.railway.app  # Production
+```
+
+#### Backend (Railway)  
+```bash
+# Environment Variables
+PORT=3001
+SUPABASE_URL=https://uvhrtozjrmxhnevcghos.supabase.co
+SUPABASE_ANON_KEY=[your_supabase_key]
+NODE_ENV=production
+```
+      ## Usage Instructions
+
+### Local Development Setup
+
+#### 1. Backend Setup
+```bash
+cd backend/
+npm install
+cp env.example .env  # Configure environment variables
+npm start  # Starts server on port 3001
+```
+
+#### 2. Frontend Setup  
+```bash
+cd frontend/
+npm install
+# Create .env.local with:
+# NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+npm run dev  # Starts development server
+```
+
+#### 3. Database Setup
+```bash
+# In Supabase SQL Editor, run:
+CREATE TABLE IF NOT EXISTS reddit_data (
+  id SERIAL PRIMARY KEY,
+  reddit_id TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT,
+  author TEXT,
+  score INTEGER DEFAULT 0,
+  subreddit TEXT,
+  url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 4. Scrape Real Data
+```bash
+cd backend/
+node scripts/simpleRedditScraper.js  # Fetches real Reddit posts
+```
+
+### Production Deployment
+
+#### Frontend (Vercel)
+1. Connect GitHub repository
+2. Set environment variables
+3. Deploy automatically on push
+
+#### Backend (Railway)
+1. Connect GitHub repository  
+2. Configure environment variables
+3. Deploy with automatic scaling
+
+## Testing & Validation
+
+### API Testing
+```bash
+# Health check
+curl http://localhost:3001/api/health
+
+# Dashboard data  
+curl http://localhost:3001/api/insights/dashboard/412ac63f-91be-4f26-bf66-2de7b9158126
+```
+
+### Data Verification
+```sql  
+-- Check scraped data in Supabase
+SELECT COUNT(*) FROM reddit_data;
+SELECT title, score, subreddit FROM reddit_data ORDER BY score DESC LIMIT 5;
+```
+
+## Next Development Priorities
+
+### High Priority
+1. **Sentiment Analysis Integration** - Connect scraped posts to sentiment scoring
+2. **Real-time Dashboard** - Display live Reddit data instead of mock responses
+3. **Railway Deployment** - Complete backend production deployment
+4. **Vector Embeddings** - Enable semantic search on scraped content
+
+### Medium Priority  
+1. **Additional Platforms** - Expand beyond Reddit (Twitter, Discord)
+2. **Advanced Analytics** - Theme clustering and pain point detection
+3. **User Authentication** - Multi-tenant dashboard access
+4. **Data Export** - CSV/JSON export functionality
+
+### Technical Debt
+1. **Error Handling** - Robust failure recovery in scraping pipeline
+2. **Rate Limiting** - Implement proper API rate limiting
+3. **Monitoring** - Add logging and performance metrics
+4. **Testing Suite** - Comprehensive unit and integration tests
 ```
 
 ## Configuration Options

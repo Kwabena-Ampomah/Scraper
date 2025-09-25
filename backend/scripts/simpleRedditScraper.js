@@ -1,8 +1,46 @@
 #!/usr/bin/env node
 
 /**
- * Ultra Simple Reddit Scraper
- * Creates its own table and inserts real Reddit data
+ * REDDIT DATA SCRAPER - REAL-TIME SOCIAL MEDIA DATA COLLECTION
+ * 
+ * Purpose: Automated script for scraping real Reddit posts and storing them in Supabase
+ * 
+ * Key Responsibilities:
+ * - Creates and maintains reddit_data table structure
+ * - Scrapes real Reddit posts from target subreddits (r/whoop, r/fitness, etc.)
+ * - Filters and processes raw Reddit JSON data
+ * - Performs duplicate detection and prevention
+ * - Stores structured data in Supabase for analytics consumption
+ * 
+ * Target Data:
+ * - WHOOP 4.0 user feedback and discussions
+ * - Battery life, connectivity, and feature complaints/requests
+ * - User experience stories and pain points
+ * - Feature requests and product improvement suggestions
+ * 
+ * Data Pipeline:
+ * 1. Table Creation: Ensures reddit_data table exists with proper schema
+ * 2. API Scraping: Fetches posts from Reddit JSON endpoints
+ * 3. Data Cleaning: Removes stickied posts, applies content filters
+ * 4. Duplicate Prevention: Checks existing reddit_id values
+ * 5. Database Insertion: Stores processed posts with metadata
+ * 
+ * Dependencies:
+ * - Supabase client for database operations
+ * - Axios for HTTP requests to Reddit API
+ * - Environment variables for database connection
+ * 
+ * Rate Limiting:
+ * - 1.5-2 second delays between API requests
+ * - Respectful User-Agent identification
+ * - Limited concurrent requests to avoid blocking
+ * 
+ * Impact on System:
+ * - Changes here affect the quality and quantity of real data available
+ * - Table schema changes require frontend component updates
+ * - Scraping logic changes impact analytics accuracy
+ * - New subreddits or search terms expand data coverage
+ * - Performance changes affect data freshness and system load
  */
 
 require('dotenv').config();

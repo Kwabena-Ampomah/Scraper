@@ -1,3 +1,44 @@
+/**
+ * MAIN DASHBOARD PAGE - FRONTEND ANALYTICS VISUALIZATION
+ * 
+ * Purpose: Primary user interface for the User Feedback Intelligence Platform dashboard
+ * 
+ * Key Responsibilities:
+ * - Orchestrates all dashboard data fetching from backend APIs
+ * - Manages application state for dashboard, clusters, pain points, feature requests
+ * - Handles loading states, error handling, and user feedback
+ * - Coordinates filter panel interactions and data refresh
+ * - Renders modular analytics components with real-time data
+ * 
+ * Component Architecture:
+ * - SentimentOverview: Displays sentiment metrics and trends
+ * - ThemeClusters: Shows thematic clustering and keyword analysis  
+ * - PainPointsAnalysis: Highlights user pain points and issues
+ * - FeatureRequests: Lists user-requested features and improvements
+ * - FilterPanel: Provides timeframe and platform filtering
+ * - LoadingSpinner: Handles loading states during API calls
+ * 
+ * Data Flow:
+ * 1. Component Mount: Triggers fetchDashboardData() on page load
+ * 2. API Calls: Fetches data from /dashboard, /clusters, /pain-points, /feature-requests
+ * 3. State Management: Updates component state with received data
+ * 4. Component Rendering: Passes data to child components for visualization
+ * 5. User Interactions: Filter changes trigger data refetch
+ * 
+ * Dependencies:
+ * - Backend API endpoints (localhost:3001/api/insights/*)
+ * - Individual dashboard component modules
+ * - API utility functions from @/lib/api
+ * - React hooks for state and lifecycle management
+ * 
+ * Impact on System:
+ * - Changes here affect the entire user experience and dashboard layout
+ * - API structure changes require corresponding data handling updates
+ * - New components need integration into the main dashboard flow
+ * - Performance optimizations impact user perceived loading times
+ * - Error handling changes affect user feedback and debugging
+ */
+
 'use client'
 
 import { useState, useEffect } from 'react'

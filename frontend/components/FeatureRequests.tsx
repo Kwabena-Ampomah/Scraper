@@ -1,3 +1,40 @@
+/**
+ * FEATURE REQUESTS COMPONENT - USER ENHANCEMENT SUGGESTIONS
+ * 
+ * Purpose: Displays and analyzes user-requested features and product improvements
+ * 
+ * Key Responsibilities:
+ * - Visualizes feature requests identified from user feedback
+ * - Shows priority levels and frequency of requests
+ * - Provides interactive charts for request analysis
+ * - Handles priority-based categorization and color coding
+ * - Renders user suggestions with context and importance
+ * 
+ * Data Structure Expected:
+ * - text: Description of the requested feature
+ * - frequency: Number of mentions/requests for this feature
+ * - priority: Importance level ('low', 'medium', 'high')
+ * 
+ * Visualization Features:
+ * - Bar chart showing request frequencies
+ * - Priority-based color coding and icons
+ * - Request cards with priority indicators
+ * - Truncated text display for long requests
+ * 
+ * Dependencies:
+ * - Backend /api/insights/feature-requests endpoint
+ * - Recharts library for data visualization
+ * - Lucide icons for priority indicators
+ * - Parent component for data fetching
+ * 
+ * Impact on System:
+ * - Changes here affect how user suggestions are presented
+ * - Data structure changes require backend API alignment
+ * - Priority logic changes need backend categorization updates
+ * - Performance improvements affect dashboard responsiveness
+ * - UI enhancements improve product planning workflow
+ */
+
 'use client'
 
 import { 

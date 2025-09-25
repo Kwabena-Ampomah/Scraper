@@ -1,3 +1,32 @@
+/**
+ * BACKEND SERVER - MAIN APPLICATION ENTRY POINT
+ * 
+ * Purpose: Core Express.js server that handles all API requests for the User Feedback Intelligence Platform
+ * 
+ * Key Responsibilities:
+ * - Sets up Express server with middleware (CORS, security, rate limiting)
+ * - Configures API routes for data scraping, sentiment analysis, and dashboard insights
+ * - Handles database connections to Supabase
+ * - Provides RESTful endpoints for frontend consumption
+ * - Manages error handling and request logging
+ * 
+ * Dependencies:
+ * - Routes: reddit, insights, health, search endpoints
+ * - Database: Supabase PostgreSQL connection
+ * - External APIs: Reddit JSON API for real-time data scraping
+ * 
+ * Environment Variables Required:
+ * - PORT: Server port (default 3001)
+ * - SUPABASE_URL: Database connection URL
+ * - SUPABASE_ANON_KEY: Database authentication key
+ * 
+ * Impact on System:
+ * - Changes here affect all API endpoints and server behavior
+ * - Middleware changes impact security, CORS, and rate limiting
+ * - Route modifications affect frontend API calls
+ * - Error handling changes affect debugging and monitoring
+ */
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

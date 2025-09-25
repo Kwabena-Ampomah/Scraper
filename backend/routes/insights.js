@@ -1,3 +1,37 @@
+/**
+ * INSIGHTS API ROUTES - CORE ANALYTICS AND DASHBOARD DATA
+ * 
+ * Purpose: Provides RESTful endpoints for user feedback analytics and dashboard visualization
+ * 
+ * Key Responsibilities:
+ * - Dashboard data aggregation (sentiment, keywords, pain points, feature requests)
+ * - Real-time data processing from Supabase reddit_data table  
+ * - Sentiment analysis and classification of user feedback
+ * - Thematic clustering and keyword extraction
+ * - Pain point identification and feature request detection
+ * 
+ * Main Endpoints:
+ * - GET /dashboard/:productId - Complete dashboard analytics
+ * - GET /clusters/:productId - Thematic clusters and trends
+ * - GET /pain-points/:productId - Identified user pain points
+ * - GET /feature-requests/:productId - User feature requests
+ * 
+ * Data Sources:
+ * - Primary: Supabase reddit_data table (real scraped data)
+ * - Fallback: PostgreSQL legacy tables (for compatibility)
+ * 
+ * Dependencies:
+ * - Supabase client for real-time data access
+ * - Database connection for fallback queries
+ * - Logger for request tracking and debugging
+ * 
+ * Impact on System:
+ * - Changes here affect all frontend dashboard visualizations
+ * - Data structure changes require frontend component updates
+ * - Performance optimizations impact dashboard load times
+ * - New analytics features require both backend and frontend changes
+ */
+
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
 const { query: dbQuery, transaction } = require('../database/connection');
@@ -144,13 +178,49 @@ router.get('/dashboard/:productId', [
     const { productId } = req.params;
     const { platform, timeframe = '30d' } = req.query;
     
+    // Defensive check for required platform parameter
+    if (!platform) {
+      return res.status(400).json({ error: "Missing platform parameter" });
+    }
+    
     logger.info('Getting dashboard data', { productId, platform, timeframe });
 
     const dashboardData = await generateDashboardData(productId, platform, timeframe);
 
+    // Transform data to match frontend expectations
+    const transformedData = {
+      sentiment: {
+        totalPosts: dashboardData.sentiment?.totalPosts || 0,
+        averageSentiment: dashboardData.sentiment?.averageSentiment || 0,
+        positiveCount: dashboardData.sentiment?.positiveCount || 0,
+        negativeCount: dashboardData.sentiment?.negativeCount || 0,
+        neutralCount: dashboardData.sentiment?.neutralCount || 0,
+        positivePercentage: (dashboardData.sentiment?.totalPosts || 0) > 0 ? 
+          ((dashboardData.sentiment.positiveCount / dashboardData.sentiment.totalPosts) * 100).toFixed(1) : '0',
+        negativePercentage: (dashboardData.sentiment?.totalPosts || 0) > 0 ? 
+          ((dashboardData.sentiment.negativeCount / dashboardData.sentiment.totalPosts) * 100).toFixed(1) : '0',
+        neutralPercentage: (dashboardData.sentiment?.totalPosts || 0) > 0 ? 
+          ((dashboardData.sentiment.neutralCount / dashboardData.sentiment.totalPosts) * 100).toFixed(1) : '0'
+      },
+      topKeywords: (dashboardData.topKeywords || []).map(kw => ({
+        keyword: kw.keyword,
+        frequency: kw.frequency,
+        averageSentiment: kw.averageSentiment || 0.5
+      })),
+      platformBreakdown: (dashboardData.platformBreakdown || []).length > 0 ? 
+        dashboardData.platformBreakdown : [
+        {
+          platform: 'Reddit',
+          postCount: dashboardData.sentiment.totalPosts || 0,
+          averageSentiment: dashboardData.sentiment.averageSentiment || 0
+        }
+      ],
+      trends: dashboardData.trends || []
+    };
+
     res.json({
       success: true,
-      dashboard: dashboardData,
+      dashboard: transformedData,
       productId,
       platform: platform || 'all',
       timeframe
@@ -171,81 +241,48 @@ router.get('/clusters/:productId', [
   query('timeframe').optional().isIn(['24h', '7d', '30d', '90d', 'all']).withMessage('Invalid timeframe'),
   query('minClusterSize').optional().isInt({ min: 2, max: 100 }).withMessage('Min cluster size must be between 2 and 100')
 ], async (req, res) => {
+  const { productId } = req.params;
+  const { platform = "all", timeframe = "30d", minClusterSize = 5 } = req.query;
+
+  console.log("📥 Clusters request:", { productId, platform, timeframe });
+
   try {
-    const { productId } = req.params;
-    const { platform, timeframe = '30d', minClusterSize = 5 } = req.query;
+    // Defensive check for required platform parameter
+    if (!platform) {
+      return res.status(400).json({ error: "Missing platform parameter" });
+    }
     
     logger.info('Getting thematic clusters', { productId, platform, timeframe, minClusterSize });
 
-    const clusters = await clusterThemes(productId, platform, timeframe, parseInt(minClusterSize));
-
-    // If no clusters found due to insufficient data, return mock clusters for demo
-    if (clusters.length === 0) {
-      const mockClusters = [
-        {
-          theme: "Product Evaluation & Purchase Decision",
-          keywords: ["worth", "buying", "trial", "subscription", "alternative"],
-          postCount: 3,
-          averageSentiment: 0.25,
-          posts: [
-            {
-              id: "mock-1",
-              title: "Recommendation to purchase or not a whoop 5.0",
-              content: "I'm on the fence about picking up the WHOOP 5.0 Peak...",
-              sentiment: "neutral",
-              platform: "reddit"
-            },
-            {
-              id: "mock-2", 
-              title: "I'm wondering whether it's worth buying a Whoop 5.0 Peak",
-              content: "I don't like the monthly subscription, but I would like to track...",
-              sentiment: "positive",
-              platform: "reddit"
-            }
-          ],
-          confidence: 0.8
-        },
-        {
-          theme: "Membership & Pricing Concerns",
-          keywords: ["membership", "peak", "life", "subscription", "price"],
-          postCount: 2,
-          averageSentiment: 0.3,
-          posts: [
-            {
-              id: "mock-3",
-              title: "Whoop 5.0 – trial ending soon, Peak vs Life membership",
-              content: "I've been using Whoop 5.0 for the past 5 days...",
-              sentiment: "positive", 
-              platform: "reddit"
-            }
-          ],
-          confidence: 0.7
-        }
-      ];
-      
-      return res.json({
-        success: true,
-        clusters: mockClusters,
-        count: mockClusters.length,
-        productId,
-        platform: platform || 'all',
-        timeframe,
-        demo: true
-      });
-    }
+    // Get dashboard data and transform keywords into clusters
+    const dashboardData = await generateDashboardData(productId, platform, timeframe);
+    
+    const clusters = (dashboardData.topKeywords || []).slice(0, 5).map((kw, index) => ({
+      id: index + 1,
+      name: kw.keyword,
+      size: kw.frequency,
+      keywords: [kw.keyword],
+      averageSentiment: kw.averageSentiment || 0.5,
+      trend: 'stable'
+    }));
 
     res.json({
       success: true,
       clusters,
-      count: clusters.length,
       productId,
       platform: platform || 'all',
       timeframe
     });
 
-  } catch (error) {
-    logger.error('Clusters endpoint error', { error: error.message });
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (err) {
+    console.error("💥 Cluster route error:", {
+      message: err.message,
+      stack: err.stack,
+      productId,
+      platform,
+      timeframe
+    });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -262,72 +299,19 @@ router.get('/pain-points/:productId', [
     const { productId } = req.params;
     const { platform, timeframe = '30d', severity } = req.query;
     
+    // Defensive check for required platform parameter
+    if (!platform) {
+      return res.status(400).json({ error: "Missing platform parameter" });
+    }
+    
     logger.info('Getting pain points', { productId, platform, timeframe, severity });
 
-    const painPoints = await analyzePainPoints(productId, platform, timeframe, severity);
-
-    // If no pain points found, return mock data for demo
-    if (painPoints.length === 0) {
-      const mockPainPoints = [
-        {
-          id: "pain-1",
-          title: "Heart Rate Accuracy Issues",
-          description: "Users report heart rate spikes or drops that don't match reality during workouts",
-          severity: "high",
-          frequency: 8,
-          sentiment: "negative",
-          keywords: ["heart rate", "accuracy", "spikes", "workouts"],
-          sampleTitles: [
-            "Heart-rate spikes or drops that clearly don't match reality during sets",
-            "The heart rate readings seem completely off during my weight training"
-          ],
-          impact: "Affects workout tracking reliability"
-        },
-        {
-          id: "pain-2", 
-          title: "Sleep Stage Inconsistencies",
-          description: "Sleep stage detection appears inconsistent compared to other wearables",
-          severity: "medium",
-          frequency: 5,
-          sentiment: "negative",
-          keywords: ["sleep", "stages", "inconsistent", "wearables"],
-          sampleTitles: [
-            "Sleep stages that seem off vs. other wearables",
-            "My sleep data doesn't match what I know about my sleep patterns"
-          ],
-          impact: "Reduces trust in sleep tracking data"
-        },
-        {
-          id: "pain-3",
-          title: "Inflated Strain Scores",
-          description: "Strain scores feel inflated or deflated after certain workouts",
-          severity: "medium", 
-          frequency: 4,
-          sentiment: "negative",
-          keywords: ["strain", "scores", "inflated", "workouts"],
-          sampleTitles: [
-            "Strain scores that feel inflated/deflated after certain workouts",
-            "The strain calculation seems way off for my cardio sessions"
-          ],
-          impact: "Affects training intensity guidance"
-        }
-      ];
-      
-      return res.json({
-        success: true,
-        painPoints: mockPainPoints,
-        count: mockPainPoints.length,
-        productId,
-        platform: platform || 'all',
-        timeframe,
-        demo: true
-      });
-    }
+    // Get dashboard data and extract pain points
+    const dashboardData = await generateDashboardData(productId, platform, timeframe);
 
     res.json({
       success: true,
-      painPoints,
-      count: painPoints.length,
+      painPoints: dashboardData.painPoints || [],
       productId,
       platform: platform || 'all',
       timeframe
@@ -352,86 +336,19 @@ router.get('/feature-requests/:productId', [
     const { productId } = req.params;
     const { platform, timeframe = '30d', priority } = req.query;
     
+    // Defensive check for required platform parameter
+    if (!platform) {
+      return res.status(400).json({ error: "Missing platform parameter" });
+    }
+    
     logger.info('Getting feature requests', { productId, platform, timeframe, priority });
 
-    const featureRequests = await analyzeFeatureRequests(productId, platform, timeframe, priority);
-
-    // If no feature requests found, return mock data for demo
-    if (featureRequests.length === 0) {
-      const mockFeatureRequests = [
-        {
-          id: "feature-1",
-          title: "Wireless Charging for Peak Members",
-          description: "Users want wireless charging included with Peak membership",
-          priority: "high",
-          frequency: 12,
-          sentiment: "positive",
-          keywords: ["wireless", "charging", "peak", "membership"],
-          sampleTitles: [
-            "If I upgrade to Peak, I should get the wireless charger",
-            "The Peak package should include wireless charging accessories"
-          ],
-          impact: "Improves user experience and membership value"
-        },
-        {
-          id: "feature-2",
-          title: "Better Heart Rate Calibration",
-          description: "Users request improved heart rate accuracy during workouts",
-          priority: "high",
-          frequency: 15,
-          sentiment: "positive",
-          keywords: ["heart rate", "accuracy", "calibration", "workouts"],
-          sampleTitles: [
-            "Need better heart rate calibration for weight training",
-            "Heart rate accuracy needs improvement during strength workouts"
-          ],
-          impact: "Addresses core tracking reliability issues"
-        },
-        {
-          id: "feature-3",
-          title: "Alternative Subscription Options",
-          description: "Users want more flexible subscription pricing options",
-          priority: "medium",
-          frequency: 8,
-          sentiment: "neutral",
-          keywords: ["subscription", "pricing", "alternatives", "flexible"],
-          sampleTitles: [
-            "Wish there were more subscription options",
-            "Need alternatives to the monthly subscription model"
-          ],
-          impact: "Could increase user adoption and retention"
-        },
-        {
-          id: "feature-4",
-          title: "Sleep Stage Validation",
-          description: "Users want better sleep stage detection and validation",
-          priority: "medium",
-          frequency: 6,
-          sentiment: "positive",
-          keywords: ["sleep", "stages", "validation", "accuracy"],
-          sampleTitles: [
-            "Sleep stage detection needs improvement",
-            "Want more accurate sleep stage tracking"
-          ],
-          impact: "Improves sleep tracking reliability"
-        }
-      ];
-      
-      return res.json({
-        success: true,
-        featureRequests: mockFeatureRequests,
-        count: mockFeatureRequests.length,
-        productId,
-        platform: platform || 'all',
-        timeframe,
-        demo: true
-      });
-    }
+    // Get dashboard data and extract feature requests
+    const dashboardData = await generateDashboardData(productId, platform, timeframe);
 
     res.json({
       success: true,
-      featureRequests,
-      count: featureRequests.length,
+      featureRequests: dashboardData.featureRequests || [],
       productId,
       platform: platform || 'all',
       timeframe
@@ -452,6 +369,9 @@ async function generateDashboardDataFromSupabase(productId, platform, timeframe)
   if (!supabase) {
     throw new Error('Supabase not configured');
   }
+
+  // Note: For demo purposes, we'll return data regardless of productId
+  // since the Supabase data doesn't have product relationships set up
 
   // Calculate date filter
   let dateFilter = null;
@@ -482,29 +402,9 @@ async function generateDashboardDataFromSupabase(productId, platform, timeframe)
       throw redditError;
     }
 
+    // For demo purposes, use all available data regardless of product filtering
     const totalPosts = redditData?.length || 0;
     
-    if (totalPosts === 0) {
-      return {
-        sentiment: {
-          total_posts: 0,
-          average_sentiment: 0,
-          positive_count: 0,
-          negative_count: 0,
-          neutral_count: 0
-        },
-        keywords: [],
-        painPoints: [],
-        featureRequests: [],
-        trends: [],
-        summary: {
-          total_feedback: 0,
-          sentiment_trend: 'stable',
-          key_insights: ['No data available for the selected timeframe']
-        }
-      };
-    }
-
     // Analyze sentiment based on score (Reddit upvotes/downvotes)
     const positiveCount = redditData.filter(post => post.score > 10).length;
     const negativeCount = redditData.filter(post => post.score < 0).length;
@@ -556,13 +456,13 @@ async function generateDashboardDataFromSupabase(productId, platform, timeframe)
 
     return {
       sentiment: {
-        total_posts: totalPosts,
-        average_sentiment: averageSentiment,
-        positive_count: positiveCount,
-        negative_count: negativeCount,
-        neutral_count: neutralCount
+        totalPosts: totalPosts,
+        averageSentiment: averageSentiment,
+        positiveCount: positiveCount,
+        negativeCount: negativeCount,
+        neutralCount: neutralCount
       },
-      keywords,
+      topKeywords: keywords,
       painPoints,
       featureRequests,
       trends: [
@@ -593,12 +493,42 @@ async function generateDashboardDataFromSupabase(productId, platform, timeframe)
  * Generate dashboard data (with fallback to Supabase)
  */
 async function generateDashboardData(productId, platform, timeframe) {
-  // Try PostgreSQL first, fall back to Supabase
+  // For development, use Supabase first since it has sample data
+  try {
+    console.log('🔍 Trying Supabase first...');
+    const supabaseResult = await generateDashboardDataFromSupabase(productId, platform, timeframe);
+    console.log('✅ Supabase result:', { totalPosts: supabaseResult.sentiment.totalPosts });
+    console.log('📊 Full Supabase sentiment object:', JSON.stringify(supabaseResult.sentiment, null, 2));
+    // If we have actual data from Supabase, use it
+    if (supabaseResult.sentiment.totalPosts > 0) {
+      console.log('✅ Using Supabase data - returning:', JSON.stringify(supabaseResult.sentiment, null, 2));
+      return supabaseResult;
+    }
+    console.log('⚠️ Supabase has no data, trying PostgreSQL...');
+  } catch (error) {
+    console.error('❌ Supabase failed:', error.message);
+    logger.warn('Supabase not available, trying PostgreSQL:', error.message);
+  }
+  
+  // Fallback to PostgreSQL
   try {
     return await generateDashboardDataFromPostgreSQL(productId, platform, timeframe);
   } catch (error) {
-    logger.warn('PostgreSQL not available, falling back to Supabase:', error.message);
-    return await generateDashboardDataFromSupabase(productId, platform, timeframe);
+    logger.error('PostgreSQL also failed:', error.message);
+    // Return empty data structure as last resort
+    return {
+      sentiment: {
+        total_posts: 0,
+        average_sentiment: 0,
+        positive_count: 0,
+        negative_count: 0,
+        neutral_count: 0
+      },
+      topKeywords: [],
+      painPoints: [],
+      featureRequests: [],
+      trends: []
+    };
   }
 }
 

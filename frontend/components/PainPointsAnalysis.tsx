@@ -1,3 +1,40 @@
+/**
+ * PAIN POINTS ANALYSIS COMPONENT - USER PROBLEM IDENTIFICATION
+ * 
+ * Purpose: Visualizes and analyzes user-reported problems and negative experiences
+ * 
+ * Key Responsibilities:
+ * - Displays identified pain points from backend analytics
+ * - Shows frequency and category breakdown of user problems
+ * - Provides interactive charts for pain point visualization
+ * - Handles empty state when no pain points are detected
+ * - Renders severity indicators and problem categorization
+ * 
+ * Data Structure Expected:
+ * - text: Description of the pain point or problem
+ * - frequency: Number of times this issue was mentioned
+ * - category: Classification of the problem type (e.g., "user_experience")
+ * 
+ * Visualization Features:
+ * - Bar chart showing pain point frequencies
+ * - Category-based color coding and icons
+ * - Summary cards with key metrics
+ * - Problem severity indicators
+ * 
+ * Dependencies:
+ * - Backend /api/insights/pain-points endpoint
+ * - Recharts library for data visualization
+ * - Lucide icons for UI elements
+ * - Parent component for data fetching
+ * 
+ * Impact on System:
+ * - Changes here affect how user problems are visualized
+ * - Data structure changes require backend API alignment
+ * - New categorization logic needs backend support
+ * - Performance optimizations improve dashboard loading
+ * - UI improvements enhance problem identification workflow
+ */
+
 'use client'
 
 import { 
