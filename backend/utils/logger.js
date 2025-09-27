@@ -1,4 +1,16 @@
 const winston = require('winston');
+const fs = require('fs');
+const path = require('path');
+
+// Ensure logs directory exists (handles ephemeral FS in containers too)
+const logsDir = path.join(process.cwd(), 'logs');
+try {
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+} catch (_) {
+  // Ignore errors creating logs directory; Console transport will still work
+}
 
 // Create logger instance
 const logger = winston.createLogger({

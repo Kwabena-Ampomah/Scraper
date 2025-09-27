@@ -49,8 +49,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS middleware (must be before helmet)
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;
+const allowedOrigins = allowedOriginsEnv ? allowedOriginsEnv.split(',').map(s => s.trim()) : null;
+
 app.use(cors({
-  origin: true, // Allow all origins for debugging
+  origin: (origin, callback) => {
+    // Allow non-browser requests or if no restriction configured
+    if (!origin || !allowedOrigins) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -68,7 +76,7 @@ app.use((req, res, next) => {
     origin: req.headers.origin,
     method: req.method,
     url: req.url,
-    allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
+    allowedOrigins: allowedOrigins || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
   });
   next();
 });

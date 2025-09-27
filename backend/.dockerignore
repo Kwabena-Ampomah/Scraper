@@ -1,0 +1,23 @@
+# dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env
+.env.*
+
+# vcs
+.git
+.gitignore
+
+# runtime logs (keep the directory, but ignore files)
+logs/*.log
+*.log
+
+# misc
+.DS_Store
+coverage
+tmp
+

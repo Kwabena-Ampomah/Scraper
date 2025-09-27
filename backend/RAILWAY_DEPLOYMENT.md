@@ -5,7 +5,7 @@
 ### Step 1: Prepare Backend for Railway
 1. **Start Command**: `npm start`
 2. **Build Command**: `npm run build` (if needed)
-3. **Node Version**: 18.x
+3. **Node Version**: 20.x
 
 ### Step 2: Environment Variables for Railway
 Set these in Railway dashboard → Variables:
@@ -29,7 +29,8 @@ OPENAI_API_KEY=your-openai-key
 
 # Server
 NODE_ENV=production
-PORT=3001
+PORT=3000
+NIXPACKS_NODE_VERSION=20
 ```
 
 ### Step 3: Deploy to Railway
