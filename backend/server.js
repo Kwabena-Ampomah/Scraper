@@ -31,7 +31,34 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Load env from backend/.env first
+dotenv.config();
+
+// Fallback: selectively merge sensitive vars from repo root .env (do not override existing values)
+try {
+  const rootEnvPath = path.resolve(__dirname, '../.env');
+  if (fs.existsSync(rootEnvPath)) {
+    const parsed = dotenv.parse(fs.readFileSync(rootEnvPath));
+    const allowedKeys = [
+      'SUPABASE_URL',
+      'SUPABASE_ANON_KEY',
+      'OPENAI_API_KEY',
+      'PINECONE_API_KEY',
+      'TWITTER_BEARER_TOKEN'
+    ];
+    for (const key of allowedKeys) {
+      if (!process.env[key] && parsed[key]) {
+        process.env[key] = parsed[key];
+      }
+    }
+  }
+} catch (_) {
+  // best-effort fallback; ignore errors
+}
 
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
@@ -46,7 +73,8 @@ const insightsRoutes = require('./routes/insights');
 const healthRoutes = require('./routes/health');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Default backend port aligned with frontend API base (3001)
+const PORT = process.env.PORT || 3001;
 
 // CORS middleware (must be before helmet)
 app.use(cors({

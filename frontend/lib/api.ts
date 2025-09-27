@@ -81,10 +81,14 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
+    const baseURL = error.config?.baseURL || ''
+    const url = error.config?.url || ''
     console.error('❌ API Error:', {
       message: error.message,
       status: error.response?.status,
-      url: error.config?.url,
+      baseURL,
+      url,
+      fullUrl: `${baseURL}${url}`,
       data: error.response?.data,
       config: error.config
     })

@@ -133,7 +133,7 @@ router.get('/:productId', [
     const params = [productId];
     let paramCount = 1;
 
-    if (platform) {
+    if (platform && platform !== 'all') {
       query += ` AND p.platform_id = (SELECT id FROM platforms WHERE name = $${++paramCount})`;
       params.push(platform);
     }
@@ -552,7 +552,7 @@ async function generateDashboardDataFromPostgreSQL(productId, platform, timefram
   const params = [productId];
   let paramCount = 1;
 
-  if (platform) {
+  if (platform && platform !== 'all') {
     platformFilter = `AND p.platform_id = (SELECT id FROM platforms WHERE name = $${++paramCount})`;
     params.push(platform);
   }
@@ -680,7 +680,7 @@ async function analyzePainPoints(productId, platform, timeframe, severity) {
   const params = [productId];
   let paramCount = 1;
 
-  if (platform) {
+  if (platform && platform !== 'all') {
     query += ` AND p.platform_id = (SELECT id FROM platforms WHERE name = $${++paramCount})`;
     params.push(platform);
   }
@@ -744,7 +744,7 @@ async function analyzeFeatureRequests(productId, platform, timeframe, priority) 
   const params = [productId];
   let paramCount = 1;
 
-  if (platform) {
+  if (platform && platform !== 'all') {
     query += ` AND p.platform_id = (SELECT id FROM platforms WHERE name = $${++paramCount})`;
     params.push(platform);
   }
